@@ -77,11 +77,13 @@ fn run(allocator: Allocator, main_arena: Allocator, sighandler: *SigHandler) !vo
     }
 
     const user_agent = blk: {
-        const USER_AGENT = "User-Agent: Lightpanda/1.0";
-        if (args.userAgentSuffix()) |suffix| {
-            break :blk try std.fmt.allocPrintSentinel(main_arena, "{s} {s}", .{ USER_AGENT, suffix }, 0);
+        const DEFAULT_USER_AGENT = "User-Agent: Lightpanda/1.0";
+        if (args.userAgent()) |ua| {
+            break :blk try std.fmt.allocPrintSentinel(main_arena, "User-Agent: {s}", .{ua}, 0);
+        } else if (args.userAgentSuffix()) |suffix| {
+            break :blk try std.fmt.allocPrintSentinel(main_arena, "{s} {s}", .{ DEFAULT_USER_AGENT, suffix }, 0);
         }
-        break :blk USER_AGENT;
+        break :blk DEFAULT_USER_AGENT;
     };
 
     // _app is global to handle graceful shutdown.
@@ -229,6 +231,13 @@ const Command = struct {
         };
     }
 
+    fn userAgent(self: *const Command) ?[]const u8 {
+        return switch (self.mode) {
+            inline .serve, .fetch => |opts| opts.common.user_agent,
+            else => unreachable,
+        };
+    }
+
     const Mode = union(App.RunMode) {
         help: bool, // false when being printed because of an error
         fetch: Fetch,
@@ -263,6 +272,7 @@ const Command = struct {
         log_format: ?log.Format = null,
         log_filter_scopes: ?[]log.Scope = null,
         user_agent_suffix: ?[]const u8 = null,
+        user_agent: ?[]const u8 = null,
     };
 
     fn printUsageAndExit(self: *const Command, success: bool) void {
@@ -316,6 +326,8 @@ const Command = struct {
             \\
             \\--user_agent_suffix
             \\                Suffix to append to the Lightpanda/X.Y User-Agent
+            \\
+            \\--user_agent    Full User-Agent string to use instead of Lightpanda/X.Y
             \\
         ;
 
@@ -744,6 +756,21 @@ fn parseCommonArg(
             }
         }
         common.user_agent_suffix = try allocator.dupe(u8, str);
+        return true;
+    }
+
+    if (std.mem.eql(u8, "--user_agent", opt)) {
+        const str = args.next() orelse {
+            log.fatal(.app, "missing argument value", .{ .arg = "--user_agent" });
+            return error.InvalidArgument;
+        };
+        for (str) |c| {
+            if (!std.ascii.isPrint(c)) {
+                log.fatal(.app, "not printable character", .{ .arg = "--user_agent" });
+                return error.InvalidArgument;
+            }
+        }
+        common.user_agent = try allocator.dupe(u8, str);
         return true;
     }
 
