@@ -135,8 +135,18 @@ fn run(allocator: Allocator, main_arena: Allocator, sighandler: *SigHandler) !vo
                 },
             };
 
-            var stdout = std.fs.File.stdout();
-            var writer = stdout.writer(&.{});
+            // When dumping, redirect stdout (fd 1) to stderr so that any
+            // output from the JS engine (e.g. V8 uncaught exceptions) doesn't
+            // pollute the dump output. The dump writer uses the saved original
+            // stdout fd instead.
+            var dump_file = std.fs.File.stdout();
+            if (opts.dump) {
+                const saved_fd = try std.posix.dup(std.posix.STDOUT_FILENO);
+                dump_file = .{ .handle = saved_fd };
+                try std.posix.dup2(std.posix.STDERR_FILENO, std.posix.STDOUT_FILENO);
+            }
+
+            var writer = dump_file.writer(&.{});
             if (opts.dump) {
                 fetch_opts.writer = &writer.interface;
             }
