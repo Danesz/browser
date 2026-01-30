@@ -161,6 +161,12 @@ pub const Connection = struct {
             }
         }
 
+        // TLS fingerprint: use Chrome-like cipher suites and curves
+        try errorCheck(c.curl_easy_setopt(easy, c.CURLOPT_SSLVERSION, @as(c_long, c.CURL_SSLVERSION_TLSv1_2 | c.CURL_SSLVERSION_MAX_DEFAULT)));
+        try errorCheck(c.curl_easy_setopt(easy, c.CURLOPT_SSL_CIPHER_LIST, "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA"));
+        try errorCheck(c.curl_easy_setopt(easy, c.CURLOPT_SSL_EC_CURVES, "X25519:P-256:P-384"));
+        try errorCheck(c.curl_easy_setopt(easy, c.CURLOPT_HTTP_VERSION, @as(c_long, c.CURL_HTTP_VERSION_2TLS)));
+
         // compression, don't remove this. CloudFront will send gzip content
         // even if we don't support it, and then it won't be decompressed.
         // empty string means: use whatever's available
