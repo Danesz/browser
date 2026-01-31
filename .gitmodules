@@ -13,3 +13,6 @@
 [submodule "vendor/brotli"]
 	path = vendor/brotli
 	url = https://github.com/google/brotli
+[submodule "vendor/boringssl-zig"]
+	path = vendor/boringssl-zig
+	url = https://github.com/Syndica/boringssl-zig.git

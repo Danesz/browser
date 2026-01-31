@@ -204,6 +204,19 @@ make install-submodule
 
 This is an alias for `git submodule init && git submodule update`.
 
+### TLS Fingerprint Support (curl-impersonate)
+
+After initializing submodules, apply the curl-impersonate patches to enable
+Chrome-like TLS fingerprints for bot detection evasion:
+
+```
+./scripts/apply-patches.sh
+```
+
+This patches both curl and BoringSSL to support `curl_easy_impersonate()`,
+which produces near-identical Chrome TLS fingerprints (JA3/JA4). Without these
+patches, the build falls back to lightweight TLS options automatically.
+
 ### Build and run
 
 You an build the entire browser with `make build` or `make build-dev` for debug
