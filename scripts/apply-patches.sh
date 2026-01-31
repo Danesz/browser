@@ -92,6 +92,7 @@ BSSL_BUILD_ZIG="$ROOT_DIR/vendor/boringssl-zig/build.zig"
 if grep -q '"crypto/aes/aes.cc"' "$BSSL_BUILD_ZIG" 2>/dev/null; then
     echo "Adapting boringssl-zig/build.zig for boringssl $BORINGSSL_COMMIT..."
     # Remove source files that don't exist in the target boringssl version
+    # and add AVX-10 assembly files required by gcm.cc
     sed -i.bak \
         -e '/"crypto\/aes\/aes.cc",/d' \
         -e '/"crypto\/bn\/div.cc",/d' \
@@ -104,6 +105,10 @@ if grep -q '"crypto/aes/aes.cc"' "$BSSL_BUILD_ZIG" 2>/dev/null; then
         -e '/"crypto\/xwing\/xwing.cc",/d' \
         -e '/"gen\/bcm\/aes-gcm-avx512-x86_64-apple.S",/d' \
         -e '/"gen\/bcm\/aes-gcm-avx512-x86_64-linux.S",/d' \
+        "$BSSL_BUILD_ZIG"
+    # Add AVX-10 assembly files (required by gcm.cc in this boringssl version)
+    sed -i.bak \
+        -e '/"gen\/bcm\/aes-gcm-avx2-x86_64-linux.S",/a\    "gen/bcm/aes-gcm-avx10-x86_64-apple.S",\n    "gen/bcm/aes-gcm-avx10-x86_64-linux.S",' \
         "$BSSL_BUILD_ZIG"
     rm -f "$BSSL_BUILD_ZIG.bak"
     echo "  Adapted build.zig source lists"
