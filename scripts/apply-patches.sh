@@ -35,11 +35,13 @@ BORINGSSL_COMMIT="673e61fc215b178a90c0e67858bbf162c8158993"
 if [ ! -d "$BORINGSSL_DIR/.git" ]; then
     echo "Cloning boringssl into vendor/boringssl-zig/boringssl..."
     git clone https://github.com/google/boringssl.git "$BORINGSSL_DIR"
-    cd "$BORINGSSL_DIR"
+fi
+
+cd "$BORINGSSL_DIR"
+CURRENT_COMMIT=$(git rev-parse HEAD)
+if [ "$CURRENT_COMMIT" != "$BORINGSSL_COMMIT" ]; then
+    echo "  Checking out boringssl $BORINGSSL_COMMIT..."
     git checkout "$BORINGSSL_COMMIT"
-else
-    echo "  boringssl already cloned"
-    cd "$BORINGSSL_DIR"
 fi
 
 # Update boringssl-zig's build.zig.zon to use local path
