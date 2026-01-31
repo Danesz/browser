@@ -217,6 +217,24 @@ This patches both curl and BoringSSL to support `curl_easy_impersonate()`,
 which produces near-identical Chrome TLS fingerprints (JA3/JA4). Without these
 patches, the build falls back to lightweight TLS options automatically.
 
+**Target versions:**
+- curl: 8.15.0
+- BoringSSL: 673e61fc (Chrome 135)
+
+**Verify TLS fingerprint after build:**
+```
+./zig-out/bin/lightpanda fetch --dump https://tls.browserleaks.com/json 2>/dev/null | jq .
+```
+
+Compare the JA3/JA4 hash against known Chrome fingerprints.
+
+**Troubleshooting:**
+If patches fail to apply, ensure submodules are at the correct versions:
+```
+cd vendor/curl && git checkout curl-8_15_0
+cd vendor/boringssl-zig/boringssl && git checkout 673e61fc
+```
+
 ### Build and run
 
 You an build the entire browser with `make build` or `make build-dev` for debug
