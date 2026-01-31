@@ -6,9 +6,19 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 echo "Applying curl-impersonate patches..."
 
-# Apply curl patch
+# Apply curl patch (requires curl 8.15.0)
+CURL_VERSION="curl-8_15_0"
 echo "Patching vendor/curl..."
 cd "$ROOT_DIR/vendor/curl"
+
+# Checkout the correct curl version for the patch
+CURRENT_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "")
+if [ "$CURRENT_TAG" != "$CURL_VERSION" ]; then
+    echo "  Checking out $CURL_VERSION..."
+    git fetch --tags 2>/dev/null || true
+    git checkout "$CURL_VERSION"
+fi
+
 if git apply --check "$ROOT_DIR/patches/curl-impersonate.patch" 2>/dev/null; then
     git apply "$ROOT_DIR/patches/curl-impersonate.patch"
     echo "  Applied curl-impersonate.patch"
