@@ -163,9 +163,10 @@ pub const Connection = struct {
 
         // TLS fingerprint configuration
         if (@hasDecl(c, "curl_easy_impersonate")) {
-            // Full curl-impersonate available — use Chrome 131 fingerprint
-            // The '1' argument applies default Chrome headers
-            try errorCheck(c.curl_easy_impersonate(easy, "chrome131", 1));
+            // Full curl-impersonate available — use Chrome 131 TLS fingerprint
+            // The '0' skips default browser HTTP headers (Accept-Encoding, UA, etc.)
+            // since lightpanda manages its own headers; we only want TLS/HTTP2 settings
+            try errorCheck(c.curl_easy_impersonate(easy, "chrome131", 0));
         } else {
             // Fallback to lightweight options (no patched curl deps)
             try errorCheck(c.curl_easy_setopt(easy, c.CURLOPT_SSLVERSION, @as(c_long, c.CURL_SSLVERSION_TLSv1_2 | c.CURL_SSLVERSION_MAX_DEFAULT)));
