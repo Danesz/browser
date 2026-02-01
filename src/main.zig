@@ -97,6 +97,7 @@ fn run(allocator: Allocator, main_arena: Allocator, sighandler: *SigHandler) !vo
         .http_max_host_open = args.httpMaxHostOpen(),
         .http_max_concurrent = args.httpMaxConcurrent(),
         .user_agent = user_agent,
+        .tls_impersonate = args.tlsImpersonate(),
     });
 
     defer app.deinit();
@@ -248,6 +249,13 @@ const Command = struct {
         };
     }
 
+    fn tlsImpersonate(self: *const Command) ?[:0]const u8 {
+        return switch (self.mode) {
+            inline .serve, .fetch => |opts| opts.common.tls_impersonate,
+            else => unreachable,
+        };
+    }
+
     const Mode = union(App.RunMode) {
         help: bool, // false when being printed because of an error
         fetch: Fetch,
@@ -283,6 +291,7 @@ const Command = struct {
         log_filter_scopes: ?[]log.Scope = null,
         user_agent_suffix: ?[]const u8 = null,
         user_agent: ?[]const u8 = null,
+        tls_impersonate: ?[:0]const u8 = null,
     };
 
     fn printUsageAndExit(self: *const Command, success: bool) void {
@@ -338,6 +347,11 @@ const Command = struct {
             \\                Suffix to append to the Lightpanda/X.Y User-Agent
             \\
             \\--user_agent    Full User-Agent string to use instead of Lightpanda/X.Y
+            \\
+            \\--tls_impersonate
+            \\                Browser profile for TLS fingerprinting (curl-impersonate).
+            \\                e.g. chrome131, chrome142, firefox144, safari184.
+            \\                Defaults to chrome131. Set to "none" to disable.
             \\
         ;
 
@@ -781,6 +795,15 @@ fn parseCommonArg(
             }
         }
         common.user_agent = try allocator.dupe(u8, str);
+        return true;
+    }
+
+    if (std.mem.eql(u8, "--tls_impersonate", opt)) {
+        const str = args.next() orelse {
+            log.fatal(.app, "missing argument value", .{ .arg = "--tls_impersonate" });
+            return error.InvalidArgument;
+        };
+        common.tls_impersonate = try allocator.dupeZ(u8, str);
         return true;
     }
 

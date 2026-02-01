@@ -162,12 +162,19 @@ pub const Connection = struct {
         }
 
         // TLS fingerprint configuration
+        const impersonate_target: ?[:0]const u8 = if (opts.tls_impersonate) |t|
+            (if (std.mem.eql(u8, t, "none")) null else t)
+        else
+            "chrome131";
+
         if (@hasDecl(c, "curl_easy_impersonate")) {
-            // Full curl-impersonate available — use Chrome 131 TLS fingerprint
-            // The '0' skips default browser HTTP headers (Accept-Encoding, UA, etc.)
-            // since lightpanda manages its own headers; we only want TLS/HTTP2 settings
-            try errorCheck(c.curl_easy_impersonate(easy, "chrome131", 0));
-        } else {
+            if (impersonate_target) |target| {
+                // Full curl-impersonate available — apply TLS/HTTP2 fingerprint settings
+                // The '0' skips default browser HTTP headers (Accept-Encoding, UA, etc.)
+                // since lightpanda manages its own headers; we only want TLS/HTTP2 settings
+                try errorCheck(c.curl_easy_impersonate(easy, target, 0));
+            }
+        } else if (impersonate_target != null) {
             // Fallback to lightweight options (no patched curl deps)
             try errorCheck(c.curl_easy_setopt(easy, c.CURLOPT_SSLVERSION, @as(c_long, c.CURL_SSLVERSION_TLSv1_2 | c.CURL_SSLVERSION_MAX_DEFAULT)));
             try errorCheck(c.curl_easy_setopt(easy, c.CURLOPT_SSL_CIPHER_LIST, "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA"));
@@ -367,6 +374,7 @@ pub const Opts = struct {
     http_proxy: ?[:0]const u8 = null,
     proxy_bearer_token: ?[:0]const u8 = null,
     user_agent: [:0]const u8,
+    tls_impersonate: ?[:0]const u8 = null,
 };
 
 pub const Method = enum(u8) {

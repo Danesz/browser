@@ -61,6 +61,7 @@ pub const Config = struct {
     http_max_host_open: ?u8 = null,
     http_max_concurrent: ?u8 = null,
     user_agent: [:0]const u8,
+    tls_impersonate: ?[:0]const u8 = null,
 };
 
 pub fn init(allocator: Allocator, config: Config) !*App {
@@ -82,6 +83,7 @@ pub fn init(allocator: Allocator, config: Config) !*App {
         .tls_verify_host = config.tls_verify_host,
         .proxy_bearer_token = config.proxy_bearer_token,
         .user_agent = config.user_agent,
+        .tls_impersonate = config.tls_impersonate,
     });
     errdefer app.http.deinit();
 
