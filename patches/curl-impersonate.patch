@@ -192,10 +192,10 @@ index b3fc29b91c..0edf9b98f7 100644
  /* The numeric version number is also available "in parts" by using these
     defines: */
 diff --git a/include/curl/easy.h b/include/curl/easy.h
-index 56f8060e04..1a348c502c 100644
+index 56f8060e04..3503917c22 100644
 --- a/include/curl/easy.h
 +++ b/include/curl/easy.h
-@@ -43,6 +43,17 @@ CURL_EXTERN CURLcode curl_easy_setopt(CURL *curl, CURLoption option, ...);
+@@ -43,6 +43,23 @@ CURL_EXTERN CURLcode curl_easy_setopt(CURL *curl, CURLoption option, ...);
  CURL_EXTERN CURLcode curl_easy_perform(CURL *curl);
  CURL_EXTERN void curl_easy_cleanup(CURL *curl);
  
@@ -208,6 +208,12 @@ index 56f8060e04..1a348c502c 100644
 + */
 +CURL_EXTERN CURLcode curl_easy_impersonate(CURL *curl, const char *target,
 +                                           int default_headers);
++
++/*
++ * curl-impersonate: Return the User-Agent string for the given target,
++ * or NULL if the target is not found.
++ */
++CURL_EXTERN const char *curl_impersonate_useragent(const char *target);
 +
 +
  /*
@@ -424,7 +430,7 @@ index e533dcc369..84d8c5d701 100644
  bool Curl_dynhds_contains(struct dynhds *dynhds,
                            const char *name, size_t namelen);
 diff --git a/lib/easy.c b/lib/easy.c
-index 9c1f1c6969..9417d94273 100644
+index 9c1f1c6969..3b013c8137 100644
 --- a/lib/easy.c
 +++ b/lib/easy.c
 @@ -77,6 +77,8 @@
@@ -436,7 +442,7 @@ index 9c1f1c6969..9417d94273 100644
  
  #include "easy_lock.h"
  
-@@ -345,6 +347,289 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
+@@ -345,6 +347,323 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
    return rc;
  }
  
@@ -723,10 +729,44 @@ index 9c1f1c6969..9417d94273 100644
 +}
 +
 +
++/*
++ * curl-impersonate:
++ * Look up the User-Agent string for the given impersonation target.
++ * Returns NULL if the target is not found.
++ */
++const char *curl_impersonate_useragent(const char *target)
++{
++  const struct impersonate_opts *opts;
++  int i;
++
++  opts = binary_search(num_impersonations, target);
++  if(!opts) {
++    for(i = 0; i < (int)num_impersonations; ++i) {
++      if(curl_strequal(target, impersonations[i].alias)) {
++        opts = impersonations + i;
++        break;
++      }
++    }
++  }
++
++  if(!opts)
++    return NULL;
++
++  /* Find the User-Agent header in the profile */
++  for(i = 0; i < IMPERSONATE_MAX_HEADERS; i++) {
++    if(opts->http_headers[i] &&
++       curl_strnequal(opts->http_headers[i], "User-Agent:", 11))
++      return opts->http_headers[i] + 12; /* skip "User-Agent: " */
++  }
++
++  return NULL;
++}
++
++
  /*
   * curl_easy_init() is the external interface to alloc, setup and init an
   * easy handle that is returned. If anything goes wrong, NULL is returned.
-@@ -353,6 +638,8 @@ CURL *curl_easy_init(void)
+@@ -353,6 +672,8 @@ CURL *curl_easy_init(void)
  {
    CURLcode result;
    struct Curl_easy *data;
@@ -735,7 +775,7 @@ index 9c1f1c6969..9417d94273 100644
  
    /* Make sure we inited the global SSL stuff */
    global_init_lock();
-@@ -375,6 +662,29 @@ CURL *curl_easy_init(void)
+@@ -375,6 +696,29 @@ CURL *curl_easy_init(void)
      return NULL;
    }
  
@@ -765,7 +805,7 @@ index 9c1f1c6969..9417d94273 100644
    return data;
  }
  
-@@ -1017,6 +1327,13 @@ CURL *curl_easy_duphandle(CURL *d)
+@@ -1017,6 +1361,13 @@ CURL *curl_easy_duphandle(CURL *d)
      outcurl->state.referer_alloc = TRUE;
    }
  
@@ -779,7 +819,7 @@ index 9c1f1c6969..9417d94273 100644
    /* Reinitialize an SSL engine for the new handle
     * note: the engine name has already been copied by dupset */
    if(outcurl->set.str[STRING_SSL_ENGINE]) {
-@@ -1073,6 +1390,9 @@ fail:
+@@ -1073,6 +1424,9 @@ fail:
   */
  void curl_easy_reset(CURL *d)
  {
@@ -789,7 +829,7 @@ index 9c1f1c6969..9417d94273 100644
    struct Curl_easy *data = d;
    Curl_req_hard_reset(&data->req, data);
    Curl_hash_clean(&data->meta_hash);
-@@ -1106,6 +1426,22 @@ void curl_easy_reset(CURL *d)
+@@ -1106,6 +1460,22 @@ void curl_easy_reset(CURL *d)
    Curl_http_auth_cleanup_digest(data);
  #endif
    data->master_mid = UINT_MAX;

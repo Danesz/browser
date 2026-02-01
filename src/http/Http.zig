@@ -61,6 +61,25 @@ pub fn init(allocator: Allocator, opts: Opts) !Http {
         adjusted_opts.proxy_bearer_token = try std.fmt.allocPrintSentinel(arena.allocator(), "Proxy-Authorization: Bearer {s}", .{bt}, 0);
     }
 
+    // When TLS impersonation is active and no explicit --user_agent was set,
+    // use the User-Agent from the impersonate profile for fingerprint consistency.
+    if (@hasDecl(c, "curl_impersonate_useragent")) {
+        const impersonate_target: ?[:0]const u8 = if (opts.tls_impersonate) |t|
+            (if (std.mem.eql(u8, t, "none")) null else t)
+        else
+            "chrome131";
+
+        if (impersonate_target) |target| {
+            // Only override if user_agent is the default (starts with "User-Agent: Lightpanda/")
+            if (std.mem.startsWith(u8, opts.user_agent, "User-Agent: Lightpanda/")) {
+                const profile_ua: ?[*:0]const u8 = c.curl_impersonate_useragent(target);
+                if (profile_ua) |ua| {
+                    adjusted_opts.user_agent = try std.fmt.allocPrintSentinel(arena.allocator(), "User-Agent: {s}", .{ua}, 0);
+                }
+            }
+        }
+    }
+
     var ca_blob: ?c.curl_blob = null;
     if (opts.tls_verify_host) {
         ca_blob = try loadCerts(allocator, arena.allocator());
