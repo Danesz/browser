@@ -138,6 +138,16 @@ fn clearList(list: *std.DoublyLinkedList) void {
     }
 }
 
+fn countList(list: *const std.DoublyLinkedList) usize {
+    var count: usize = 0;
+    var node = list.first;
+    while (node) |n| {
+        count += 1;
+        node = n.next;
+    }
+    return count;
+}
+
 pub fn addFromElement(self: *ScriptManager, comptime from_parser: bool, script_element: *Element.Html.Script, comptime ctx: []const u8) !void {
     if (script_element._executed) {
         // If a script tag gets dynamically created and added to the dom:
@@ -505,12 +515,20 @@ pub fn staticScriptsDone(self: *ScriptManager) void {
 fn evaluate(self: *ScriptManager) void {
     if (self.is_evaluating) {
         // It's possible for a script.eval to cause evaluate to be called again.
+        log.debug(.browser, "evaluate skipped busy", .{});
         return;
     }
 
     const page = self.page;
     self.is_evaluating = true;
     defer self.is_evaluating = false;
+
+    log.debug(.browser, "evaluate start", .{
+        .static_scripts_done = self.static_scripts_done,
+        .defer_count = countList(&self.defer_scripts),
+        .async_count = countList(&self.async_scripts),
+        .ready_count = countList(&self.ready_scripts),
+    });
 
     while (self.ready_scripts.popFirst()) |n| {
         var script: *Script = @fieldParentPtr("node", n);
@@ -549,8 +567,16 @@ fn evaluate(self: *ScriptManager) void {
     while (self.defer_scripts.first) |n| {
         var script: *Script = @fieldParentPtr("node", n);
         if (script.complete == false) {
+            log.debug(.browser, "defer script waiting", .{
+                .url = script.url,
+                .status = script.status,
+            });
             return;
         }
+        log.debug(.browser, "evaluating defer script", .{
+            .url = script.url,
+            .remaining = countList(&self.defer_scripts) - 1,
+        });
         defer {
             _ = self.defer_scripts.popFirst();
             script.deinit(true);
@@ -777,6 +803,9 @@ pub const Script = struct {
 
         if (page.isGoingAway()) {
             // don't evaluate scripts for a dying page.
+            log.warn(.browser, "script skipped navigating", .{
+                .url = self.url,
+            });
             return;
         }
 
